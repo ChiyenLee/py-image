@@ -4,13 +4,14 @@ Image Matching
 
 Takes a query image and image dataset and returns the best
 match. A preliminary search by color composition is performed
-to narrow the search span, and a SURF comparison is done to 
-find the best match.
+to narrow the search span, and a SURF match is done on the
+best matches.
 
 Usage:
 ------
-    python ImageMatcher.py -q [<query image>] -d [<dataset directory]
+    python ImageMatcher.py -q [<query image>] -d [<dataset directory>]
 '''
+
 
 import cv2
 import numpy as np
@@ -18,22 +19,27 @@ import argparse
 import glob
 from matplotlib import pyplot as plt
 
-from Searcher import Searcher
+from pano import Panorama
+from search import Searcher
 
 class ImageMatcher(object):
     '''
     Class for handling image indexing, color matching, and SURF matching.
     '''
 
-    def __init__(self, img, data):
+    def __init__(self, img, data, seeColorMatches=False, seeSURFMatches=False):
         self.image = img
         self.dataset = data
         self.index = self.createIndex()
+        self.estimates = []
+        self.seeColorMatchesFlag = seeColorMatches
+        self.seeSURFMatchesFlag = seeSURFMatches
 
     def createHistogram(self, image, bins=[8, 8, 8]):
         '''
         Creates a flattened 3D histogram.
         '''
+
         hist = cv2.calcHist([image], [0, 1, 2], None, bins, [0, 256, 0, 256, 0, 256])
         hist = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
         return hist.flatten()
@@ -42,14 +48,14 @@ class ImageMatcher(object):
         '''
         Creates an dictionary with keys as image names and values as histograms.
         '''
-        
+
         print("Indexing: " + self.dataset + "...")
         index = {}
 
         for imagePath in glob.glob(self.dataset + "/*.jpg"):
             filename = imagePath[imagePath.rfind("/") + 1:]
             image = cv2.imread(imagePath)
-            print('\t' + imagePath)
+            print('\t%s' % imagePath)
             features = self.createHistogram(image)
             index[filename] = features
 
@@ -69,10 +75,10 @@ class ImageMatcher(object):
 
         results = searcher.search(queryFeatures)[:MAX_NUMBER_MATCHES]
 
-        print("Color Matches Found:")
+        print("Matches found:")
         for j in range(len(results)):
             (score, imageName) = results[j]
-            print("\t%d. %s : %.3f" % (j + 1, imageName, score))
+            print("\t%d. %s : %.3f" % (j+1, imageName, score))
 
         return results
 
@@ -89,6 +95,7 @@ class ImageMatcher(object):
             cv2.imshow("Match " + str(i+1), match)
 
         cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     def SURFmatch(self, imageName):
         '''
@@ -97,7 +104,7 @@ class ImageMatcher(object):
         '''
 
         print("SURF matching: " + imageName + "...")
-        MIN_MATCH_COUNT = 100
+        MIN_MATCH_COUNT = 200
         FLANN_INDEX_KDTREE = 0
 
         query = cv2.imread(self.image)
@@ -112,11 +119,8 @@ class ImageMatcher(object):
         flann = cv2.FlannBasedMatcher(index_params, search_params)
 
         matches = flann.knnMatch(des1, des2, k=2)
-
-        good = []
-        for m,n in matches:
-            if m.distance < 0.7*n.distance:
-                good.append(m)
+        filtered = list(filter(lambda x:x[0].distance < 0.7*x[1].distance, matches))
+        good = list(map(lambda x: x[0], filtered))
 
         if len(good) > MIN_MATCH_COUNT:
             print("\tFound %s matches" % (len(good)))
@@ -130,21 +134,44 @@ class ImageMatcher(object):
             pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
             dst = cv2.perspectiveTransform(pts,M)
 
+            width = cv2.imread(self.image).shape[1]
+            offset = 0.5 * (0.5 * (dst[0][0] + dst[1][0]) + 0.5 * (dst[2][0] - width + dst[3][0] - width))
+
+            self.estimates.append((offset[0] * 60/width + int(imageName[5:8]), len(good)))
+
             training = cv2.polylines(training,[np.int32(dst)],True,255,3,cv2.LINE_AA)
 
         else:
-            print("\tNot enough matches found")
+            print("\tNot enough matches found - %d/%d" % (len(good), MIN_MATCH_COUNT))
             return
 
-        draw_params = dict(matchColor=(0,255,0), singlePointColor=None, matchesMask=matchesMask, flags=2)
-        result = cv2.drawMatches(query,kp1,training,kp2,good,None,**draw_params)
-        plt.imshow(result, 'gray'), plt.show()
+        if self.seeSURFMatchesFlag:
+            draw_params = dict(matchColor=(0,255,0), 
+                singlePointColor=None, 
+                matchesMask=matchesMask, 
+                flags=2)
+
+            result = cv2.drawMatches(query,kp1,training,kp2,good,None,**draw_params)
+            plt.imshow(result, 'gray'), plt.show()
+
+    def calculateAngle(self):
+        totalMatches = sum(list(map(lambda x: x[1], self.estimates)))
+        return sum(map(lambda x: x[0] * x[1]/totalMatches, self.estimates))
 
     def run(self):
         results = self.searchByColor()
 
+        if self.seeColorMatchesFlag:
+            self.showColorResults()
+
         for match in results:
             self.SURFmatch(match[1])
+
+        angle = self.calculateAngle()
+        print("Approximate angle: %0.2f" % angle)
+
+        Panorama(self.dataset, 100, 100, angle).run()
+
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -154,4 +181,6 @@ if __name__ == '__main__':
         help='Path to directory of training images')
     args = vars(ap.parse_args())
 
-    ImageMatcher(args['query'], args['dataset']).run()
+    print(__doc__)
+
+    ImageMatcher(args['query'], args['dataset'], True, True).run()
