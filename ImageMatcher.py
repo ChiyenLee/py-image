@@ -143,7 +143,6 @@ class ImageMatcher(object):
 
         else:
             print("\tNot enough matches found - %d/%d" % (len(good), MIN_MATCH_COUNT))
-            return
 
         if self.seeSURFMatchesFlag:
             draw_params = dict(matchColor=(0,255,0), 
@@ -153,6 +152,8 @@ class ImageMatcher(object):
 
             result = cv2.drawMatches(query,kp1,training,kp2,good,None,**draw_params)
             plt.imshow(result, 'gray'), plt.show()
+
+        return len(good)
 
     def calculateAngle(self):
         totalMatches = sum(list(map(lambda x: x[1], self.estimates)))
@@ -183,4 +184,4 @@ if __name__ == '__main__':
 
     print(__doc__)
 
-    ImageMatcher(args['query'], args['dataset'], True, True).run()
+    ImageMatcher(args['query'], args['dataset']).run()
