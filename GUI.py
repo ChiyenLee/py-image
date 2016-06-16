@@ -1,6 +1,7 @@
 import cv2
 import numpy as np 
 import math
+import glob
 
 from Matcher import Matcher
 
@@ -132,6 +133,7 @@ def illustrateProb(circle, arrowsL, probsL):
             setArrow(this_circles_arrows, j, 1, color, mult)
 
 def read(filename):
+    '''this function reads the content from a txt file'''
     file = open(filename,'r')
     content = file.read().split('\n')[:-1]
     newContent = []
@@ -140,26 +142,29 @@ def read(filename):
         newContent.append((int(content[i]), L))
     return newContent
 
-# spot_one = imageMatch('query.jpg','spot_one')
-# spot_two = imageMatch('query.jpg','spot_two')
-# spot_three = imageMatch('query.jpg','spot_three')
-# p = [spot_one, spot_two, spot_three]
+def multipleMatch(folder,method,  res1, res2):
+    '''this function establish multiple matches and output everything in out.txt'''
+    for imagePath in glob.glob(folder + '/*.jpg'):
+        Matcher(imagePath, 'spot_one', method, res1, res2).write("out.txt", 'w')
+        Matcher(imagePath, 'spot_two', method, res1, res2).write("out.txt", 'a')
+        Matcher(imagePath, 'spot_three', method, res1, res2).write("out.txt", 'a')
 
-# p = [ (1000, [0.4]*23 + [0.1]), (1000, [0.4]*23 + [0.1]), (1000, [0.4]*23 + [0.1])]
-
-# print (len(p))
 # Initiate Screen
 img = np.zeros((540, 960, 3), np.uint8)
 cv2.namedWindow('GUI')
 
-# Initiating Circles
+# Initiating Circles and Matches
 circle1 = Circle(50, 200, 200, 'spot_one', [150, 150, 150])
-Matcher('query.jpg','spot_one','SURF',320,240).write('out.txt','w')
+# Matcher('query.jpg','spot_one','SURF',320,240).write('out.txt','w')
 circle2 = Circle(50, 400, 200, 'spot_two', [150, 150, 150])
-Matcher('query.jpg','spot_two','SURF',320,240).write('out.txt','a')
+# Matcher('query.jpg','spot_two','SURF',320,240).write('out.txt','a')
 circle3 = Circle(50, 600, 200, 'spot_three', [150, 150, 150])
-Matcher('query.jpg','spot_three','SURF',320,240).write('out.txt','a')
+# Matcher('query.jpg','spot_three','SURF',320,240).write('out.txt','a')
 circles = [circle1, circle2, circle3]
+
+
+# Initiate Matches
+multipleMatch('cam2_img', 'SURF', 320, 240)
 
 # Initiating Arrows
 arrows1 = getArrows(circle1, 25)
