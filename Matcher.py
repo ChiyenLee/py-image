@@ -182,6 +182,15 @@ class Matcher(object):
 
         return len(good)
 
+    def write(self, filename, mode):
+        file = open(filename, mode)
+        totalMatches, results = self.run()
+        file.write(str(totalMatches) + '\n')
+        file.write('[')
+        for prob in results[:len(results)-1]:
+            file.write(str(prob) + ', ')
+        file.write(str(results[-1]) + ']\n')
+
     def run(self):
         start = time.time()
         print('%s matching...' % self.alg)
@@ -205,14 +214,15 @@ class Matcher(object):
 
         for j in range(1,6):
             (imageName, score) = sorted_matches[-j]
-            print("%d. %s : %0.3f" % (j, imageName, score / totalMatches))
+            print("%d. %s : %0.3f" % (j, imageName, 1.0*score / totalMatches))
 
         print("Found %d total matches" % totalMatches)
 
         end = time.time()
 
         print('Time elapsed: %0.1f s' % (end-start))
-        print([match[1]/totalMatches for match in matches])
+        results = [1.0*match[1]/totalMatches for match in matches]
+        return (totalMatches, results)
 
 
 if __name__ == '__main__':
