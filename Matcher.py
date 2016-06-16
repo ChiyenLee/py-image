@@ -22,6 +22,7 @@ import time
 from matplotlib import pyplot as plt
 
 from search import Searcher
+from pano import Panorama
 
 class Matcher(object):
 
@@ -184,12 +185,15 @@ class Matcher(object):
 
     def write(self, filename, mode):
         file = open(filename, mode)
-        totalMatches, results = self.run()
+        totalMatches, results, bestMatch = self.run()
         file.write(str(totalMatches) + '\n')
         file.write('[')
         for prob in results[:len(results)-1]:
             file.write(str(prob) + ', ')
         file.write(str(results[-1]) + ']\n')
+
+        angle = int(bestMatch[0].replace(self.data,'').replace('/angle','').replace('.jpg',''))
+        Panorama(self.data, 100, 100, angle).write(self.data + '_panorama.jpg')
 
     def run(self):
         start = time.time()
@@ -222,7 +226,9 @@ class Matcher(object):
 
         print('Time elapsed: %0.1f s' % (end-start))
         results = [1.0*match[1]/totalMatches for match in matches]
-        return (totalMatches, results)
+        bestMatch = sorted_matches[-1]
+        # bestMatch = int(sorted_matches[-1][0].replace(self.data,'').replace('/angle','').replace('.jpg',''))
+        return (totalMatches, results, bestMatch)
 
 
 if __name__ == '__main__':

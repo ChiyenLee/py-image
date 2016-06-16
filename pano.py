@@ -42,6 +42,16 @@ class Panorama(object):
         pt2 = (int(self.match/360 * self.w * 24 + self.w), self.h)
         cv2.rectangle(image, pt1, pt2, (0, 0, 255), 5)
 
+    def write(self, filename):
+        img = np.zeros((self.h, self.w*len(self.images), 3), np.uint8)
+        for x in range(len(self.images)):
+            try:
+                self.copyTo(img, self.images[x], 0, x*self.w)
+            except:
+                pass
+        self.drawRect(img)
+        cv2.imwrite(filename, img   )
+
     def run(self):
         img = np.zeros((self.h, self.w*len(self.images), 3), np.uint8)
         for x in range(len(self.images)):
